@@ -1,4 +1,5 @@
 #include <bits/stdc++.h>
+#include <chrono>
 #include <pthread.h>
 using namespace std;
 
@@ -22,14 +23,14 @@ void *sparseXnormal(void *id_t){
 
     int id = *(int *)id_t;
 
-    for(int i = 0; i < COL2; i++){
+    const int lin = id%LIN1;
+    const int col = id%COL2;
 
-        float ans = 0;
-        for(auto j:sparseMatrix1[id])
-            ans += j.second * matrix2[j.first][i];
-        
-        result[id][i] = ans;
-    }
+    float ans = 0;
+    for(auto i:sparseMatrix1[lin])
+        ans += i.second * matrix2[i.first][col];
+    
+    result[lin][col] = ans;
 
     pthread_exit(NULL);
 }
@@ -38,19 +39,17 @@ void *sparseXsparse(void *id_t){
 
     int id = *(int *)id_t;
 
-    for(int i = 0; i < COL2; i++){
+    const int lin = id%LIN1;
+    const int col = id%COL2;
 
-        float ans = 0;
-        for(auto j:sparseMatrix1[id]){
-
-            auto it = lower_bound(sparseMatrix2[j.first].begin(), sparseMatrix2[j.first].end(), i, comp());
-
-            if (it != sparseMatrix2[j.first].end() && it->first == i)
-                ans += j.second * it->second;
-        }
-        
-        result[id][i] = ans;
+    float ans = 0;
+    for(auto i:sparseMatrix1[lin]){
+        auto it = lower_bound(sparseMatrix2[i.first].begin(), sparseMatrix2[i.first].end(), col, comp());
+        if (it != sparseMatrix2[i.first].end() && it->first == col)
+            ans += i.second * it->second;
     }
+    
+    result[lin][col] = ans;
 
     pthread_exit(NULL);
 }
@@ -68,20 +67,27 @@ int main(){
     cout << "MATRIX 2" << endl;
     print(matrix2);
 
-    pthread_t threads[LIN1];
-    int id[LIN1];
+    if(COL1 != LIN2){
+        
+        cout << "not possible!" << endl;
+        pthread_exit(NULL);
+    }
+
+    const int TAM = LIN1 * COL2;
+    pthread_t threads[TAM];
+    int id[TAM];
 
     //sparse x normal   
     cout << "sparse x normal" << endl;
     result.assign(LIN1, vector<float>(COL2, 0.0));
 
-    for(int i = 0; i < LIN1; i++){
+    for(int i = 0; i < TAM; i++){
 
         id[i] = i;
         pthread_create(&threads[i], NULL, sparseXnormal, (void *)&id[i]);
     }
 
-    for(int i = 0; i < LIN1; i++)
+    for(int i = 0; i < TAM; i++)
         pthread_join(threads[i], NULL);
     
     print(result);
@@ -90,7 +96,7 @@ int main(){
     cout << "sparse x sparse" << endl;
     result.assign(LIN1, vector<float>(COL2, 0.0));
 
-    for(int i = 0; i < LIN1; i++){
+    for(int i = 0; i < TAM; i++){
 
         id[i] = i;
         pthread_create(&threads[i], NULL, sparseXsparse, (void *)&id[i]);
